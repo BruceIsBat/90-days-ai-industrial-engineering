@@ -1,6 +1,24 @@
+# Data
 data/raw/
 data/processed/
+*.zip
+*.tar.gz
+*.mat
+
+# Python & Virtual Environments
 __pycache__/
+*.py[cod]
+.venv/
+env/
+venv/
+
+# Notebooks & IDE
 .ipynb_checkpoints/
+.vscode/
+.idea/
+
+# Experiment Logs & Weights
+logs/
+checkpoints/
 *.pt
-*.ckpt
+*.onnx
