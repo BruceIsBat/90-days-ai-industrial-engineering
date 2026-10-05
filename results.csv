@@ -1,1 +1,1 @@
-project,model,seed,config,metric,value,date
+timestamp,project,phase,model_name,dataset,split,seed,metric_name,metric_value,config_json,commit_hash,strict_determinism,torch_version,numpy_version,device,notes
