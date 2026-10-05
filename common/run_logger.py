@@ -6,6 +6,7 @@ Centralized experiment ledger for appending verified benchmark runs to results.c
 import csv
 import json
 import math
+import numbers
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -43,7 +44,7 @@ CSV_HEADERS = [
 ]
 
 VALID_SPLITS = {"train", "val", "test"}
-VALID_PHASES = {"Phase 1", "Phase 2", "Phase 3"}
+VALID_PHASES = {f"Phase {i}" for i in range(1, 6)}
 
 
 def get_git_commit_hash() -> str:
@@ -151,12 +152,18 @@ def log_experiment(
     # 3. Seed validation via common/seeds.py contract
     seed = _validate_seed(seed)
 
-    # 4. Strict numerical metric validation (reject NaN and inf)
-    if not isinstance(metric_value, (int, float)):
-        raise TypeError(f"metric_value must be float or int, got {type(metric_value).__name__}.")
+    # 4. Strict numerical metric validation (reject bools, accept numbers.Real, reject NaN/inf)
+    if isinstance(metric_value, bool):
+        raise TypeError(f"metric_value cannot be a boolean, got: {metric_value}")
+    if not isinstance(metric_value, numbers.Real):
+        raise TypeError(
+            f"metric_value must be a real scalar number, got {type(metric_value).__name__}."
+        )
+
     val_float = float(metric_value)
     if math.isnan(val_float) or math.isinf(val_float):
         raise ValueError(f"metric_value cannot be NaN or Inf, got {metric_value}.")
+
 
     # 5. Serialization of config and metadata
     config_dict = config if config is not None else {}
