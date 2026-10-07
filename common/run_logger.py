@@ -19,11 +19,12 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
-from common.seeds import _validate_seed
+from common.seeds import validate_seed
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RESULTS_FILE = REPO_ROOT / "results.csv"
 
+# Updated to determinism_mode and synchronized with the row construction
 CSV_HEADERS = [
     "timestamp",
     "project",
@@ -36,15 +37,16 @@ CSV_HEADERS = [
     "metric_value",
     "config_json",
     "commit_hash",
-    "strict_determinism",
+    "device",
+    "determinism_mode",
     "torch_version",
     "numpy_version",
-    "device",
     "notes",
 ]
 
 VALID_SPLITS = {"train", "val", "test"}
 VALID_PHASES = {f"Phase {i}" for i in range(1, 6)}
+VALID_DEVICES = {"cpu", "cuda", "mps"}
 
 
 def get_git_commit_hash() -> str:
@@ -65,7 +67,6 @@ def get_git_commit_hash() -> str:
         if not commit:
             return "unknown"
 
-        
         # Check for uncommitted changes in tracked files, excluding results.csv
         status = (
             subprocess.check_output(
@@ -91,27 +92,24 @@ def get_git_commit_hash() -> str:
         return "unknown"
 
 
-def _get_environment_metadata(strict_determinism: Optional[bool] = None) -> Dict[str, str]:
-    """Capture environment and framework versions for the reproducibility contract."""
-    np_ver = np.__version__
+def _get_framework_metadata() -> dict[str, str]:
+    """Capture runtime framework versions and deterministic execution settings."""
     if TORCH_AVAILABLE:
         torch_ver = torch.__version__
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        det_mode = (
-            str(strict_determinism)
-            if strict_determinism is not None
-            else str(torch.are_deterministic_algorithms_enabled())
-        )
+        if torch.are_deterministic_algorithms_enabled():
+            determinism_mode = (
+                "warn_only" if torch.is_deterministic_algorithms_warn_only_enabled() else "strict"
+            )
+        else:
+            determinism_mode = "none"
     else:
-        torch_ver = "none"
-        device = "cpu"
-        det_mode = "false"
+        torch_ver = "not_installed"
+        determinism_mode = "none"
 
     return {
         "torch_version": torch_ver,
-        "numpy_version": np_ver,
-        "device": device,
-        "strict_determinism": det_mode,
+        "numpy_version": np.__version__,
+        "determinism_mode": determinism_mode,
     }
 
 
@@ -124,11 +122,11 @@ def log_experiment(
     seed: int,
     metric_name: str,
     metric_value: float,
+    device: str = "cpu",
     config: Optional[Dict[str, Any]] = None,
     notes: str = "",
     commit_hash: Optional[str] = None,
     filepath: Optional[Union[Path, str]] = None,
-    strict_determinism: Optional[bool] = None,
 ) -> None:
     """
     Append a verified experiment run to results.csv with full precision and audit metadata.
@@ -143,14 +141,16 @@ def log_experiment(
     if not metric_name or not metric_name.strip():
         raise ValueError("metric_name must not be empty.")
 
-    # 2. Strict phase and split validation
+    # 2. Strict phase, split, and device validation
     if phase not in VALID_PHASES:
         raise ValueError(f"Invalid phase '{phase}'. Must be one of {sorted(VALID_PHASES)}.")
     if split not in VALID_SPLITS:
         raise ValueError(f"Invalid split '{split}'. Must be one of {sorted(VALID_SPLITS)}.")
+    if device not in VALID_DEVICES:
+        raise ValueError(f"Invalid device '{device}'. Must be one of {sorted(VALID_DEVICES)}.")
 
     # 3. Seed validation via common/seeds.py contract
-    seed = _validate_seed(seed)
+    seed = validate_seed(seed)
 
     # 4. Strict numerical metric validation (reject bools, accept numbers.Real, reject NaN/inf)
     if isinstance(metric_value, bool):
@@ -164,11 +164,10 @@ def log_experiment(
     if math.isnan(val_float) or math.isinf(val_float):
         raise ValueError(f"metric_value cannot be NaN or Inf, got {metric_value}.")
 
-
     # 5. Serialization of config and metadata
     config_dict = config if config is not None else {}
     config_json = json.dumps(config_dict, sort_keys=True)
-    env_meta = _get_environment_metadata(strict_determinism)
+    env_meta = _get_framework_metadata()
     resolved_commit = commit_hash if commit_hash is not None else get_git_commit_hash()
     timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -191,7 +190,7 @@ def log_experiment(
     else:
         write_header = True
 
-    # 8. Row construction with full precision (repr)
+    # 8. Row construction with full precision (repr) strictly matching CSV_HEADERS
     row = [
         timestamp,
         project,
@@ -204,10 +203,10 @@ def log_experiment(
         repr(val_float),
         config_json,
         resolved_commit,
-        env_meta["strict_determinism"],
+        device,
+        env_meta["determinism_mode"],
         env_meta["torch_version"],
         env_meta["numpy_version"],
-        env_meta["device"],
         notes,
     ]
 

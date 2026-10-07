@@ -26,7 +26,7 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
-def _validate_seed(seed: int) -> int:
+def validate_seed(seed: int) -> int:
     """Validate that seed is an integer within [0, 2**32 - 1]."""
     if not isinstance(seed, int) or isinstance(seed, bool):
         raise TypeError(f"Seed must be an integer, got {type(seed).__name__}: {seed}")
@@ -51,7 +51,7 @@ def set_seed(seed: int = 42, strict_determinism: bool = True) -> int:
         int: The applied seed.
     """
     # 0. Seed boundary validation for cross-library compatibility
-    seed = _validate_seed(seed)
+    seed = validate_seed(seed)
 
     # 1. Required for deterministic cuBLAS operations on CUDA >= 10.2
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
@@ -83,7 +83,7 @@ def set_seed(seed: int = 42, strict_determinism: bool = True) -> int:
 
 def get_numpy_rng(seed: int = 42) -> np.random.Generator:
     """Return an isolated NumPy default_rng instance for explicit passing."""
-    seed = _validate_seed(seed)
+    seed = validate_seed(seed)
     return np.random.default_rng(seed)
 
 
@@ -92,7 +92,7 @@ def get_torch_generator(seed: int = 42) -> "torch.Generator":
     Return a seeded torch.Generator instance.
     Pass this directly to DataLoader(..., generator=gen) to govern shuffle sequences.
     """
-    seed = _validate_seed(seed)
+    seed = validate_seed(seed)
     if not TORCH_AVAILABLE:
         raise RuntimeError("Cannot instantiate torch.Generator: PyTorch is not installed.")
 
