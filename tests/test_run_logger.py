@@ -1,21 +1,30 @@
 """
 tests/test_run_logger.py
-Verification suite for the experiment run ledger.
+Verification suite for the experiment run ledger, determinism modes, and audit metadata.
 """
 
 import csv
 import json
-import subprocess
 from pathlib import Path
 import numpy as np
 import pytest
+import torch
 
-import common.run_logger as run_logger
 from common.run_logger import (
     log_experiment,
     CSV_HEADERS,
     get_git_commit_hash,
 )
+from common.seeds import set_seed
+
+
+@pytest.fixture(autouse=True)
+def reset_determinism_state():
+    """Ensure determinism settings are restored after each test."""
+    yield
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    torch.use_deterministic_algorithms(False)
 
 
 def _valid_payload() -> dict:
@@ -29,14 +38,19 @@ def _valid_payload() -> dict:
         "seed": 42,
         "metric_name": "RMSE",
         "metric_value": 18.4231,
+        "device": "cpu",
         "config": {"lr": 0.001, "batch_size": 32},
         "notes": "initial valid run",
         "commit_hash": "abc1234",
     }
 
 
-# Test 1: First call creates header + row; second call appends without duplicate header
+# ---------------------------------------------------------------------------
+# Section 1: Lifecycle, Append, Header & Roundtrip Tests
+# ---------------------------------------------------------------------------
+
 def test_append_lifecycle_and_dictreader(tmp_path: Path):
+    """First call creates header + row; second call appends without duplicate header."""
     dest = tmp_path / "results.csv"
     p1 = _valid_payload()
     p1["filepath"] = dest
@@ -62,8 +76,8 @@ def test_append_lifecycle_and_dictreader(tmp_path: Path):
     assert raw_rows[0] == CSV_HEADERS
 
 
-# Test 2: Existing empty file gets header; mismatched header raises and leaves file unchanged
 def test_empty_file_and_mismatched_header(tmp_path: Path):
+    """Existing empty file gets header; mismatched header raises and leaves file unchanged."""
     # Case A: Empty 0-byte file
     empty_file = tmp_path / "empty.csv"
     empty_file.touch()
@@ -90,8 +104,8 @@ def test_empty_file_and_mismatched_header(tmp_path: Path):
     assert corrupt_file.read_text(encoding="utf-8") == initial_content
 
 
-# Test 3: Precision round-trips exactly
 def test_metric_precision_roundtrips(tmp_path: Path):
+    """Precision round-trips exactly."""
     dest = tmp_path / "precision.csv"
     exact_val = 0.1234567890123456
     p = _valid_payload()
@@ -106,8 +120,8 @@ def test_metric_precision_roundtrips(tmp_path: Path):
     assert float(reader[0]["metric_value"]) == exact_val
 
 
-# Test 4: Notes with commas, quotes, and newlines round-trip exactly
 def test_notes_with_special_characters_roundtrip(tmp_path: Path):
+    """Notes with commas, quotes, and newlines round-trip exactly."""
     dest = tmp_path / "notes.csv"
     special_notes = 'Line 1,\nLine 2 with "quotes", commas, and tabs:\t[ok]'
     p = _valid_payload()
@@ -122,7 +136,6 @@ def test_notes_with_special_characters_roundtrip(tmp_path: Path):
     assert reader[0]["notes"] == special_notes
 
 
-# Test 5: Parametrize bad inputs - each raises and leaves no file behind
 @pytest.mark.parametrize(
     "bad_key,bad_value,expected_error",
     [
@@ -136,6 +149,7 @@ def test_notes_with_special_characters_roundtrip(tmp_path: Path):
     ],
 )
 def test_bad_inputs_raise_and_create_no_file(tmp_path: Path, bad_key, bad_value, expected_error):
+    """Parametrized bad inputs - each raises and leaves no file behind."""
     dest = tmp_path / f"should_not_exist_{bad_key}.csv"
     p = _valid_payload()
     p["filepath"] = dest
@@ -147,7 +161,6 @@ def test_bad_inputs_raise_and_create_no_file(tmp_path: Path, bad_key, bad_value,
     assert not dest.exists(), f"File {dest} should not have been created on failed validation!"
 
 
-# Test 6 & 7: The EXPECTED FAILING CASES against current unhardened code
 def test_numpy_float_metric_accepted(tmp_path: Path):
     """NumPy scalars (e.g. np.float32) must be accepted as valid metric values."""
     dest = tmp_path / "numpy_metric.csv"
@@ -174,3 +187,94 @@ def test_phase_4_and_5_accepted(tmp_path: Path):
     with open(dest, mode="r", newline="", encoding="utf-8") as f:
         reader = list(csv.DictReader(f))
     assert reader[0]["phase"] == "Phase 4"
+
+
+# ---------------------------------------------------------------------------
+# Section 2: Determinism Modes & Device Validation Tests
+# ---------------------------------------------------------------------------
+
+def test_determinism_mode_strict(tmp_path: Path):
+    """1. After set_seed(42, strict_determinism=True), assert determinism_mode == 'strict'."""
+    set_seed(42, strict_determinism=True)
+    results_file = tmp_path / "results_strict.csv"
+
+    p = _valid_payload()
+    p["filepath"] = results_file
+    p["seed"] = 42
+    log_experiment(**p)
+
+    with open(results_file, mode="r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        row = next(reader)
+
+    assert row["determinism_mode"] == "strict"
+
+
+def test_determinism_mode_none(tmp_path: Path):
+    """2. After set_seed(42, strict_determinism=False), assert determinism_mode == 'none'."""
+    set_seed(42, strict_determinism=False)
+    results_file = tmp_path / "results_none.csv"
+
+    p = _valid_payload()
+    p["filepath"] = results_file
+    p["seed"] = 42
+    log_experiment(**p)
+
+    with open(results_file, mode="r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        row = next(reader)
+
+    assert row["determinism_mode"] == "none"
+
+
+def test_determinism_mode_warn_only(tmp_path: Path):
+    """3. After torch.use_deterministic_algorithms(True, warn_only=True), assert 'warn_only'."""
+    torch.use_deterministic_algorithms(True, warn_only=True)
+    results_file = tmp_path / "results_warn.csv"
+
+    p = _valid_payload()
+    p["filepath"] = results_file
+    log_experiment(**p)
+
+    with open(results_file, mode="r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        row = next(reader)
+
+    assert row["determinism_mode"] == "warn_only"
+
+
+def test_device_validation_and_persistence(tmp_path: Path):
+    """4. device='cpu' is written; device='gpu' and device='cuda:0' raise ValueError leaving no file behind."""
+    valid_file = tmp_path / "results_cpu.csv"
+
+    # Valid device write
+    p = _valid_payload()
+    p["filepath"] = valid_file
+    p["device"] = "cpu"
+    log_experiment(**p)
+
+    assert valid_file.exists()
+    with open(valid_file, mode="r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        row = next(reader)
+    assert row["device"] == "cpu"
+
+    # Invalid device: 'gpu'
+    invalid_file_gpu = tmp_path / "results_invalid_gpu.csv"
+    p_gpu = _valid_payload()
+    p_gpu["filepath"] = invalid_file_gpu
+    p_gpu["device"] = "gpu"
+
+    with pytest.raises(ValueError, match="Invalid device 'gpu'"):
+        log_experiment(**p_gpu)
+    assert not invalid_file_gpu.exists()
+
+    # Invalid device: 'cuda:0'
+    invalid_file_cuda = tmp_path / "results_invalid_cuda.csv"
+    p_cuda = _valid_payload()
+    p_cuda["filepath"] = invalid_file_cuda
+    p_cuda["device"] = "cuda:0"
+
+    with pytest.raises(ValueError, match="Invalid device 'cuda:0'"):
+        log_experiment(**p_cuda)
+    assert not invalid_file_cuda.exists()
