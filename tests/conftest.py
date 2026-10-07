@@ -41,3 +41,20 @@ def isolate_default_results_csv(tmp_path: Path, monkeypatch):
     """
     safe_target = tmp_path / "sandbox_results.csv"
     monkeypatch.setattr(run_logger, "DEFAULT_RESULTS_FILE", safe_target)
+
+
+@pytest.fixture(autouse=True)
+def reset_determinism_state():
+    """
+    Capture both determinism state and warn_only mode prior to test execution
+    and restore both precisely to prevent cross-test leakage.
+    """
+    prev_enabled = torch.are_deterministic_algorithms_enabled()
+    prev_warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+
+    yield
+
+    # Restore the full original 2-tuple state
+    torch.use_deterministic_algorithms(prev_enabled, warn_only=prev_warn_only)
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()

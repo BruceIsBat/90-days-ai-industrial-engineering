@@ -278,3 +278,9 @@ def test_device_validation_and_persistence(tmp_path: Path):
     with pytest.raises(ValueError, match="Invalid device 'cuda:0'"):
         log_experiment(**p_cuda)
     assert not invalid_file_cuda.exists()
+
+
+def test_fixture_cleans_up_warn_only():
+    """Verify that warn_only state doesn't leak into subsequent default enable calls."""
+    # After any test that sets warn_only=True, this should be False by default
+    assert not torch.is_deterministic_algorithms_warn_only_enabled()
