@@ -125,7 +125,7 @@ def test_rul_unsorted_cycles_consistent():
     """3. Unsorted cycles yield consistent RUL values per cycle."""
     cycles = [4, 1, 3, 2]
     rul = compute_rul_piecewise_linear(cycles, max_rul=2.0)
-    # max_c = 4 -> raw: [0, 3, 1, 2] -> capped at 2.0: [0, 2, 1, 2]
+    #max_c = 4 -> raw: [0, 3, 1, 2] -> capped at 2.0: [0, 2, 1, 2]
     np.testing.assert_allclose(rul, [0.0, 2.0, 1.0, 2.0])
 
 
