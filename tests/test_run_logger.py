@@ -280,7 +280,11 @@ def test_device_validation_and_persistence(tmp_path: Path):
     assert not invalid_file_cuda.exists()
 
 
+
 def test_fixture_cleans_up_warn_only():
-    """Verify that warn_only state doesn't leak into subsequent default enable calls."""
-    # After any test that sets warn_only=True, this should be False by default
-    assert not torch.is_deterministic_algorithms_warn_only_enabled()
+    """
+    Verify that restore_torch_determinism_state cleans up both the enabled flag AND warn_only mode.
+    """
+    # 1. Dirty the global state intentionally inside the test
+    torch.use_deterministic_algorithms(True, warn_only=True)
+    assert torch.is_deterministic_algorithms_warn_only_enabled() is True
