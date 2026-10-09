@@ -1,1 +1,2 @@
 timestamp,project,phase,model_name,dataset,split,seed,metric_name,metric_value,config_json,commit_hash,device,determinism_mode,torch_version,numpy_version,notes
+2026-10-09T14:06:34.125187+00:00,01-predictive-maintenance,Phase 1,lightgbm_baseline,C-MAPSS_FD001,test,42,RMSE,19.489138334935785,"{""colsample_bytree"": 0.6464754518687582, ""learning_rate"": 0.022575204745951826, ""max_depth"": 7, ""min_child_samples"": 39, ""num_leaves"": 59, ""subsample"": 0.6884496522694894}",37413d2-dirty,cpu,strict,2.14.1+cpu,2.2.6,NASA_Score=1215.46; 50_trials_optuna_early_stopping
