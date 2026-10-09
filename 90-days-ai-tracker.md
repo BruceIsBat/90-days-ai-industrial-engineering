@@ -22,12 +22,12 @@ Caveat: [what didn't work or is uncertain]
 | Done | Day | Date | Task | Post |
 |---|---|---|---|---|
 | [x] | 1 | Sat Oct 03 | Create public repo + folder structure; README with the rule 'No Evidence, No Claim'; set up environment. Done: seeds.py + 9 passing tests. Moved to Day 2: run_logger.py + metrics.py | LAUNCH follow-up: pin the manifesto, share the repo link. |
-| [ ] | 2 | Sun Oct 04 | Survey AI in IPE (predictive maintenance, quality, scheduling, digital twins); write a one-page map. Carry-over: run_logger.py + metrics.py with tests | Sunday: weekly longer writeup (LinkedIn article / thread). |
-| [ ] | 3 | Mon Oct 05 | Pick 2 core datasets; write the evaluation protocol (splits, metrics, baseline rules); draft PREREGISTRATION.md from the revised project questions | Monday: THE CLAIM. State what you're testing this week. |
-| [ ] | 4 | Tue Oct 06 | Time-series refresher: windowing, rolling features | Daily receipt (plot / table / commit). |
-| [ ] | 5 | Wed Oct 07 | Validation for time-dependent data; demo data leakage on a toy example | Wednesday: RECEIPTS. Mid-week chart. |
-| [ ] | 6 | Thu Oct 08 | Tabular refresher: gradient boosting, tuning discipline | Daily receipt (plot / table / commit). |
-| [ ] | 7 | Fri Oct 09 | Catch-up day + Week 1 writeup | Friday: EXPLAIN EXPLAIN teardown. Take a type of hype claim, show the evidence needed. |
+| [x] | 2 | Sun Oct 04 | Survey AI in IPE (predictive maintenance, quality, scheduling, digital twins); write a one-page map. Carry-over: run_logger.py + metrics.py with tests | Sunday: weekly longer writeup (LinkedIn article / thread). |
+| [x] | 3 | Mon Oct 05 | Pick 2 core datasets; write the evaluation protocol (splits, metrics, baseline rules); draft PREREGISTRATION.md from the revised project questions | Monday: THE CLAIM. State what you're testing this week. |
+| [x] | 4 | Tue Oct 06 | Time-series refresher: windowing, rolling features | Daily receipt (plot / table / commit). |
+| [x] | 5 | Wed Oct 07 | Validation for time-dependent data; demo data leakage on a toy example | Wednesday: RECEIPTS. Mid-week chart. |
+| [x] | 6 | Thu Oct 08 | Tabular refresher: gradient boosting, tuning discipline | Daily receipt (plot / table / commit). |
+| [x] | 7 | Fri Oct 09 | Catch-up day + Week 1 writeup | Friday: EXPLAIN EXPLAIN teardown. Take a type of hype claim, show the evidence needed. |
 | [ ] | 8 | Sat Oct 10 | EDA: NASA C-MAPSS turbofan data | Saturday: daily receipt + send week's results to Claude for skeptic review. |
 | [ ] | 9 | Sun Oct 11 | EDA: CWRU bearing vibration data | Sunday: weekly longer writeup (LinkedIn article / thread). |
 | [ ] | 10 | Mon Oct 12 | EDA: SECOM (missing values, imbalance) | Monday: THE CLAIM. State what you're testing this week. |
