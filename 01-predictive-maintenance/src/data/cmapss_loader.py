@@ -3,12 +3,11 @@ src/data/cmapss_loader.py
 Ingestion, parsing, and data validation for NASA C-MAPSS turbofan degradation datasets.
 """
 
+import math
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Union
 import numpy as np
 import polars as pl
-
-from common.splits import compute_rul_piecewise_linear
 
 RAW_COLUMNS = [
     "unit_number",
@@ -24,6 +23,19 @@ SCHEMA_OVERRIDES = {
     **{f"op_setting_{i}": pl.Float64 for i in range(1, 4)},
     **{f"sensor_{i}": pl.Float64 for i in range(1, 22)},
 }
+
+
+def _validate_max_rul(max_rul: Union[float, int]) -> float:
+    """Validate that max_rul is a strictly positive, finite numeric threshold."""
+    if isinstance(max_rul, bool):
+        raise TypeError("max_rul must be a numeric float or int, not bool.")
+    if not isinstance(max_rul, (int, float)):
+        raise TypeError(f"max_rul must be a numeric float or int, got {type(max_rul)}.")
+    if math.isnan(max_rul) or math.isinf(max_rul):
+        raise ValueError("max_rul must be finite (not NaN or Inf).")
+    if max_rul <= 0:
+        raise ValueError(f"max_rul must be strictly positive, got {max_rul}.")
+    return float(max_rul)
 
 
 def _read_cmapss_file(file_path: Path) -> pl.DataFrame:
@@ -51,6 +63,7 @@ def _read_cmapss_file(file_path: Path) -> pl.DataFrame:
 def _validate_trajectory_integrity(df: pl.DataFrame, context_name: str) -> pl.DataFrame:
     """
     Validate data cleanliness, duplicate keys, contiguous cycle indexing, and sorting.
+    Shuffled or unsorted rows are deterministically sorted by (unit_number, time_cycles).
     """
     # 1. Null and finite checks across all 26 columns
     for col in df.columns:
@@ -68,7 +81,6 @@ def _validate_trajectory_integrity(df: pl.DataFrame, context_name: str) -> pl.Da
     df_sorted = df.sort(["unit_number", "time_cycles"])
 
     # 4. Check that cycles per engine are strictly contiguous starting at cycle 1
-    # For every unit: cycle_count == max_cycle and min_cycle == 1
     cycle_stats = (
         df_sorted.group_by("unit_number")
         .agg([
@@ -99,10 +111,12 @@ def load_cmapss_subset(
     Load train, test, and true test RUL for a specific C-MAPSS subset.
 
     Returns:
-        train_df: Run-to-failure trajectories with piecewise linear 'rul' column.
+        train_df: Run-to-failure trajectories sorted by (unit, cycle) with piecewise linear 'rul'.
         test_df: Censored operational trajectories sorted by (unit, cycle).
         true_test_rul: 1D array of ground truth RUL values for test engines at cutoff.
     """
+    valid_max_rul = _validate_max_rul(max_rul)
+
     train_path = data_dir / f"train_{subset}.txt"
     test_path = data_dir / f"test_{subset}.txt"
     rul_path = data_dir / f"RUL_{subset}.txt"
@@ -113,13 +127,15 @@ def load_cmapss_subset(
 
     train_df = _read_cmapss_file(train_path)
     test_df = _read_cmapss_file(test_path)
-    true_test_rul = np.loadtxt(rul_path, dtype=np.int64)
+    true_test_rul = np.atleast_1d(np.loadtxt(rul_path, dtype=np.int64))
 
-    # Validate structural trajectory integrity
+    # Validate structural trajectory integrity (nulls, gaps, duplicates) and sort
     train_df = _validate_trajectory_integrity(train_df, context_name="train")
     test_df = _validate_trajectory_integrity(test_df, context_name="test")
 
-    # Validate test unit sequence is strictly 1..N
+    # In C-MAPSS, line i of RUL_FD00x.txt corresponds to unit ID i.
+    # We guarantee this 1-to-1 correspondence is valid by verifying that test
+    # engine IDs are strictly contiguous from 1 through N, and test_df is sorted.
     unique_test_units = test_df["unit_number"].unique().sort().to_numpy()
     n_test_units = len(unique_test_units)
     expected_unit_ids = np.arange(1, n_test_units + 1)
@@ -134,21 +150,12 @@ def load_cmapss_subset(
         )
 
     # Compute piecewise linear RUL via Polars expression
-    # RUL = min(max_rul, max_cycle - cycle)
+    # RUL = min(valid_max_rul, max_cycle - cycle)
     train_df = train_df.with_columns(
         (pl.col("time_cycles").max().over("unit_number") - pl.col("time_cycles"))
         .cast(pl.Float64)
-        .clip(upper_bound=max_rul)
+        .clip(upper_bound=valid_max_rul)
         .alias("rul")
     )
 
     return train_df, test_df, true_test_rul
-
-
-if __name__ == "__main__":
-    repo_root = Path(__file__).resolve().parents[3]
-    data_directory = repo_root / "data" / "raw" / "cmapss"
-    train, test, true_rul = load_cmapss_subset(data_directory, subset="FD001")
-    print("Ingestion verified:")
-    print(f"  Train: {train.shape[0]} rows, {train['unit_number'].n_unique()} units")
-    print(f"  Test:  {test.shape[0]} rows, {test['unit_number'].n_unique()} units")

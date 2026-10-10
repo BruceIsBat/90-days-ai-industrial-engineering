@@ -144,9 +144,11 @@ def test_loader_raises_on_test_cycle_gap(tmp_path: Path):
 
 
 def test_loader_raises_on_null_value_from_ragged_short_row(tmp_path: Path):
-    # Row with only 10 columns; truncate_ragged_lines fills remaining 16 with nulls
-    short_line = "1 1 0.0 0.0 100.0 0.5 0.5 0.5 0.5 0.5"
-    train_lines = [short_line]
+    # Line 1 establishes full 26-column schema
+    line1 = _make_dummy_cycle_line(1, 1)
+    # Line 2 has only 10 columns; truncate_ragged_lines pads remaining 16 with nulls
+    line2_short = "1 2 0.0 0.0 100.0 0.5 0.5 0.5 0.5 0.5"
+    train_lines = [line1, line2_short]
     test_lines = [_make_dummy_cycle_line(1, 1)]
     _write_mock_cmapss_files(tmp_path, train_lines, test_lines, ["10"])
 
