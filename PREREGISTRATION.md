@@ -1,23 +1,23 @@
 # Benchmark Pre-Registration: 90 Days of AI in Industrial Engineering
 
 ## Project 1: Remaining Useful Life (RUL) Estimation on NASA C-MAPSS FD001
-- **Status**: Frozen
+- **Status**: Draft v1
 - **Date Registered**: Draft written 2026-10-09; frozen at the commit tagged prereg-v1
-- **Benchmark Baseline**: LightGBM + Optuna (50 trials) on rolling temporal features
-- **Baseline Performance**: **19.4891 RMSE** | **NASA Score: 1215.46** (Seed 42, FD001 capped at 125 cycles)
+- **Benchmark Baseline**: Audited 5-seed LightGBM ensemble (seeds 42–46) on rolling temporal features
+- **Baseline Performance**: **17.5434 Capped RMSE** (FD001 capped at 125 cycles)
 
 ### Pre-Registered Hypotheses
 We test whether deep sequence architectures (LSTM, 1D-CNN) outperform a tuned gradient-boosted tabular baseline when evaluated under strict trajectory isolation.
 
 ### Minimum Effect Size
 - **Threshold**: Minimum **5.0% relative improvement** in primary test RMSE over the LightGBM baseline:
-  $$\text{Target RMSE} \le 19.4891 \times (1 - 0.05) = 18.5146 \text{ cycles}$$
+-   $$\text{Target RMSE} \le 17.5434 \times (1 - 0.05) = 16.6662 \text{ cycles}$$
 
 ### Decision Criteria (The Three Outcomes)
 Evaluated across 10,000 paired bootstrap resamples on the 100 terminal test engine predictions:
-1. **Win**: Candidate model test RMSE $\le 18.5146$ AND the upper bound of the 95% bootstrap confidence interval of the error difference strictly excludes zero ($\Delta_{97.5\%} < 0$).
+1. **Win**: Candidate model test RMSE $\le 16.6662$ AND the upper bound of the 95% bootstrap confidence interval of the error difference strictly excludes zero ($\Delta_{97.5\%} < 0$).
 2. **Inconclusive**: Candidate improves test RMSE by $\ge 5\%$, but the bootstrap CI crosses zero ($\Delta_{97.5\%} \ge 0$), or point estimate improvement is between $0\%$ and $5\%$.
-3. **Loss**: Candidate model test RMSE is worse than or equal to the LightGBM baseline ($19.4891$).
+3. **Loss**: Candidate model test RMSE is worse than or equal to the LightGBM baseline ($17.5434$).
 
 ### Compute & Hyperparameter Parity
 - Neural architectures receive an identical tuning budget of 50 Optuna trials using the Tree-structured Parzen Estimator (TPE) sampler.
