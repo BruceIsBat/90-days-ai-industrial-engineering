@@ -75,7 +75,7 @@ $$\text{NASA Score} = \sum_{i=1}^{N} s_i$$
 ---
 
 ## 8. Minimum Effect & The Three Outcomes
-- **Minimum Effect Threshold**: A candidate model must achieve a relative improvement of at least **5.0%** over the LightGBM baseline RMSE ($19.4891 \times 0.95 = 18.5146$ cycles or lower).
+- **Minimum Effect Threshold**: A candidate model must achieve a relative improvement of at least **5.0%** over the LightGBM baseline RMSE ($17.5434 \times 0.95 = 16.6662$ cycles or lower).
 - **The Three Outcomes**:
   1. **Win**: Candidate achieves $\ge 5\%$ reduction in test RMSE AND the upper bound of the 95% bootstrap CI on $\Delta$ is strictly negative ($\Delta_{97.5\%} < 0$).
   2. **Inconclusive**: Candidate point estimate improves by $\ge 5\%$, but the 95% bootstrap CI crosses zero ($\Delta_{97.5\%} \ge 0$), or improvement is between $0\%$ and $5\%$.
